@@ -1,0 +1,52 @@
+# Один конфиг nFPM на оба формата. Стейджинг готовит `just package-staging`,
+# версию всегда подставляет just через env WMDE_VERSION (см. justfile).
+# ВАЖНО: только ${WMDE_VERSION} без :-дефолта — nFPM раскрывает env через
+# os.ExpandEnv и :- не понимает (версия молча станет 0.0.0~rc0).
+name: wmde-randr
+arch: amd64
+version: ${WMDE_VERSION}
+release: 1
+maintainer: WMDE <wmde@wmde.fun>
+description: |-
+  WMDE display configuration CLI (fork of cosmic-randr)
+  Applies monitor arrangements on behalf of the desktop shell;
+  crate names kept cosmic-* so dependents resolve patch redirects.
+homepage: https://wmde.fun
+license: MPL-2.0
+section: x11
+
+# Как в PKGBUILD: маленький wayland-клиент без libcosmic.
+depends:
+  - libc6 | glibc
+  - libgcc-s1 | libgcc
+  - libwayland-client0
+
+contents:
+  - src: target/staging/usr/bin/wmde-randr
+    dst: /usr/bin/wmde-randr
+    file_info: { mode: 0755 }
+  # doc (copyright + changelog.Debian.gz) готовит just package-doc.
+  # Только для deb: в rpm нет %doc-разметки у nFPM,
+  # а лицензия и changelog там и так есть (License-тег + %changelog).
+  - src: target/staging/usr/share/doc/wmde-randr/
+    dst: /usr/share/doc/wmde-randr/
+    type: tree
+    packager: deb
+
+# %changelog для rpm генерит just package-staging (иначе E: no-changelogname-tag).
+# Путь от корня репо: nFPM резолвит его от cwd, а не от каталога конфига.
+changelog: target/changelog.yaml
+
+overrides:
+  deb:
+    depends:
+      - libc6
+      - libgcc-s1
+      - libwayland-client0
+  rpm:
+    # SONAME вместо имён пакетов: имена расходятся между
+    # Fedora и openSUSE, а SONAME предоставляют обе семьи.
+    depends:
+      - libc.so.6()(64bit)
+      - libgcc_s.so.1()(64bit)
+      - libwayland-client.so.0()(64bit)
